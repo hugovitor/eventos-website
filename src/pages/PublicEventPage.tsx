@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase, type Event, type Guest, type Gift } from '../lib/supabase';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
+import { PhotoGallery } from '../components/ui/PhotoGallery';
+import { useEventPhotos } from '../hooks/useEventPhotos';
 import { Calendar, MapPin, Gift as GiftIcon, Users, Heart } from 'lucide-react';
 
 export const PublicEventPage: React.FC = () => {
@@ -19,14 +21,11 @@ export const PublicEventPage: React.FC = () => {
     plus_one: false
   });
   const [showGuestForm, setShowGuestForm] = useState(false);
+  
+  // Hook para carregar fotos reais do banco
+  const { photos: eventPhotos } = useEventPhotos(eventId || '');
 
-  useEffect(() => {
-    if (eventId) {
-      fetchEventData();
-    }
-  }, [eventId]);
-
-  const fetchEventData = async () => {
+  const fetchEventData = useCallback(async () => {
     try {
       // Buscar dados do evento
       const { data: eventData, error: eventError } = await supabase
@@ -63,7 +62,13 @@ export const PublicEventPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId]);
+
+  useEffect(() => {
+    if (eventId) {
+      fetchEventData();
+    }
+  }, [eventId, fetchEventData]);
 
   const handleGuestConfirmation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -354,6 +359,13 @@ export const PublicEventPage: React.FC = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Galeria de Fotos */}
+        <PhotoGallery
+          eventId={event.id}
+          isPublic={true}
+          photos={eventPhotos}
+        />
       </div>
 
       {/* Footer */}

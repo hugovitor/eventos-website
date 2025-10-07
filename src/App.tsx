@@ -8,6 +8,9 @@ import { EditEventPage } from './pages/EditEventPage';
 import { PublicEventPage } from './pages/PublicEventPage';
 import { ConfirmEmailPage } from './pages/ConfirmEmailPage';
 import { TestPage } from './pages/TestPage';
+import { EnhancedTemplateDemoPage } from './pages/EnhancedTemplateDemoPage';
+import { UltimateTemplateDemoPage } from './pages/UltimateTemplateDemoPage';
+import { ComprehensiveSystemDemo } from './components/ui/ComprehensiveSystemDemo';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -42,8 +45,11 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Test Route - Remove this after testing */}
+      {/* Test Routes - Remove after testing */}
       <Route path="/test" element={<TestPage />} />
+      <Route path="/demo" element={<EnhancedTemplateDemoPage />} />
+      <Route path="/ultimate" element={<UltimateTemplateDemoPage />} />
+      <Route path="/system-demo" element={<ComprehensiveSystemDemo />} />
       
       {/* Public Routes */}
       <Route 

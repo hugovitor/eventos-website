@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase, type Event } from '../lib/supabase';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
-import { Plus, Calendar, Users, Gift, RefreshCw } from 'lucide-react';
+import { Plus, Calendar, Users, Gift, RefreshCw, Trash2, Eye, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../hooks/useNotification';
 
@@ -32,6 +32,135 @@ export const DashboardPage: React.FC = () => {
       setLoading(false);
     }
   }, [user?.id]);
+
+  const deleteEvent = async (eventId: string, eventTitle: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o evento "${eventTitle}"? 
+    
+⚠️ ATENÇÃO: Esta ação irá remover PERMANENTEMENTE:
+• O evento e todas suas configurações
+• Todos os convidados confirmados
+• Lista de presentes e reservas
+• Fotos e arquivos enviados
+• Mensagens e comentários
+• Customizações de template
+
+Esta ação NÃO PODE ser desfeita.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // O PostgreSQL irá deletar automaticamente em cascata devido às foreign keys
+      // mas vamos fazer a limpeza explícita para garantir e dar feedback ao usuário
+      
+      console.log(`Iniciando exclusão completa do evento ${eventId}...`);
+      
+      // 1. Deletar mensagens dos convidados (se existir tabela)
+      const { error: messagesError } = await supabase
+        .from('guest_messages')
+        .delete()
+        .eq('event_id', eventId);
+      
+      if (messagesError && messagesError.code !== 'PGRST116') { // PGRST116 = tabela não existe
+        console.warn('Erro ao deletar mensagens:', messagesError);
+      }
+
+      // 2. Deletar reservas de presentes
+      const { error: reservationsError } = await supabase
+        .from('gift_reservations')
+        .delete()
+        .eq('event_id', eventId);
+      
+      if (reservationsError && reservationsError.code !== 'PGRST116') {
+        console.warn('Erro ao deletar reservas:', reservationsError);
+      }
+
+      // 3. Deletar presentes
+      const { error: giftsError } = await supabase
+        .from('gifts')
+        .delete()
+        .eq('event_id', eventId);
+      
+      if (giftsError) {
+        console.warn('Erro ao deletar presentes:', giftsError);
+      }
+
+      // 4. Deletar convidados
+      const { error: guestsError } = await supabase
+        .from('guests')
+        .delete()
+        .eq('event_id', eventId);
+      
+      if (guestsError) {
+        console.warn('Erro ao deletar convidados:', guestsError);
+      }
+
+      // 5. Finalmente, deletar o evento (isso deve limpar o resto automaticamente)
+      const { error: eventError } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', eventId)
+        .eq('user_id', user?.id); // Segurança: só pode deletar próprios eventos
+
+      if (eventError) throw eventError;
+
+      console.log(`Evento ${eventId} excluído completamente com sucesso!`);
+
+      addNotification({
+        type: 'success',
+        title: 'Evento excluído completamente',
+        message: `O evento "${eventTitle}" e todos os dados relacionados foram removidos permanentemente.`
+      });
+
+      // Atualizar a lista de eventos
+      setEvents(prev => prev.filter(event => event.id !== eventId));
+      
+    } catch (error) {
+      console.error('Erro ao excluir evento:', error);
+      addNotification({
+        type: 'error',
+        title: 'Erro ao excluir evento',
+        message: 'Ocorreu um erro ao tentar excluir o evento. Tente novamente ou contate o suporte.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleEventPublic = async (eventId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({ is_public: !currentStatus })
+        .eq('id', eventId)
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      addNotification({
+        type: 'success',
+        title: 'Status atualizado',
+        message: `Evento ${!currentStatus ? 'publicado' : 'tornado privado'} com sucesso.`
+      });
+
+      // Atualizar a lista de eventos
+      setEvents(prev => 
+        prev.map(event => 
+          event.id === eventId 
+            ? { ...event, is_public: !currentStatus }
+            : event
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+      addNotification({
+        type: 'error',
+        title: 'Erro ao atualizar status',
+        message: 'Ocorreu um erro ao tentar atualizar o status do evento.'
+      });
+    }
+  };
 
   useEffect(() => {
     if (user?.id) {
@@ -187,7 +316,9 @@ export const DashboardPage: React.FC = () => {
                           {event.title}
                         </h3>
                         <p className="text-sm text-gray-500 capitalize">
-                          {event.type === 'birthday' ? 'Aniversário' : 'Casamento'}
+                          {event.type === 'birthday' ? '🎂 Aniversário' : 
+                           event.type === 'wedding' ? '💒 Casamento' :
+                           event.type === 'corporate' ? '🏢 Corporativo' : '🎉 Festa'}
                         </p>
                       </div>
                       <span
@@ -217,32 +348,54 @@ export const DashboardPage: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    <div className="mt-4 flex space-x-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="flex-1"
-                        onClick={() => navigate(`/events/${event.id}/edit`)}
-                      >
-                        Editar
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => {
-                          if (event.is_public) {
-                            navigate(`/event/${event.id}`);
-                          } else {
-                            addNotification({
-                              type: 'warning',
-                              title: 'Evento Privado',
-                              message: 'Torne o evento público primeiro para ver a página.'
-                            });
-                          }
-                        }}
-                      >
-                        Ver Página
-                      </Button>
+                    <div className="mt-4 space-y-2">
+                      <div className="flex space-x-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="flex-1"
+                          onClick={() => navigate(`/events/${event.id}/edit`)}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Editar
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            if (event.is_public) {
+                              navigate(`/event/${event.id}`);
+                            } else {
+                              addNotification({
+                                type: 'warning',
+                                title: 'Evento Privado',
+                                message: 'Torne o evento público primeiro para ver a página.'
+                              });
+                            }
+                          }}
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          Ver
+                        </Button>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button 
+                          size="sm" 
+                          variant={event.is_public ? "outline" : "primary"}
+                          className="flex-1"
+                          onClick={() => toggleEventPublic(event.id, event.is_public)}
+                        >
+                          {event.is_public ? 'Tornar Privado' : 'Publicar'}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="secondary"
+                          onClick={() => deleteEvent(event.id, event.title)}
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

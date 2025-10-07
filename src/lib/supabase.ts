@@ -33,6 +33,24 @@ export interface Event {
   custom_url?: string;
   created_at: string;
   updated_at: string;
+  // Novas propriedades
+  ceremony_time?: string;
+  reception_time?: string;
+  dress_code?: string;
+  special_instructions?: string;
+  contact_info?: {
+    phone?: string;
+    email?: string;
+    whatsapp?: string;
+  };
+  social_media?: {
+    instagram?: string;
+    facebook?: string;
+    website?: string;
+  };
+  rsvp_deadline?: string;
+  max_guests?: number;
+  allow_plus_one?: boolean;
 }
 
 export interface Guest {
@@ -46,6 +64,17 @@ export interface Guest {
   plus_one_confirmed: boolean;
   created_at: string;
   updated_at: string;
+  // Novas propriedades
+  confirmation_date?: string;
+  dietary_restrictions?: string;
+  special_requests?: string;
+  phone_number?: string;
+  will_attend_ceremony?: boolean;
+  will_attend_reception?: boolean;
+  plus_one_name?: string;
+  plus_one_dietary_restrictions?: string;
+  confirmation_token?: string;
+  last_updated?: string;
 }
 
 export interface Gift {
@@ -70,6 +99,38 @@ export interface Subscription {
   plan_type: 'monthly' | 'per_event';
   amount: number;
   currency: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Novas interfaces para funcionalidades adicionais
+export interface EventPhoto {
+  id: string;
+  event_id: string;
+  url: string;
+  filename: string;
+  caption?: string;
+  uploadedAt: Date;
+  size: number;
+  dimensions?: { width: number; height: number };
+  size_bytes?: number;
+  width?: number;
+  height?: number;
+  mime_type?: string;
+  storage_path: string;
+  uploaded_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventSection {
+  id: string;
+  event_id: string;
+  section_type: 'text' | 'timeline' | 'faq' | 'location_map' | 'custom';
+  title: string;
+  content: Record<string, unknown>;
+  position_order: number;
+  is_visible: boolean;
   created_at: string;
   updated_at: string;
 }
